@@ -152,6 +152,9 @@
                             position: pt
                         });
                     }
+                    if (marker.draggable == true){
+                        marker2.setDraggable(true);
+                    }
 
                     // add marker to the map
                     marker2.setMap(map);
