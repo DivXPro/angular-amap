@@ -152,8 +152,8 @@
                             position: pt
                         });
                     }
-                    if (marker.draggable == true){
-                        marker2.setDraggable(true);
+                    if (marker.draggable){
+                        marker2.setDraggable(marker.draggable);
                     }
 
                     // add marker to the map
