@@ -58,17 +58,22 @@
      *
      * @constructor
      */
-    var aMapDir = function() {
+    //var aMapDir = 
+
+    var aMap = angular.module('aMap', []);
+    aMap.directive('aMap', ['$timeout',function($timeout) {
 
         // Return configured, directive instance
 
         return {
             restrict: 'E',
             scope: {
-                'options': '='
+                'options': '=',
+                'search': '=',
+                'myPosition': '='
             },
             link: function($scope, element, attrs) {
-
+                $timeout(function(){
                 var ops = {};
                 ops.navCtrl = checkNull($scope.options.navCtrl) ? defaults.navCtrl : $scope.options.navCtrl;
                 ops.scaleCtrl = checkNull($scope.options.scaleCtrl) ? defaults.scaleCtrl : $scope.options.scaleCtrl;
@@ -137,6 +142,7 @@
                         infoWin.open(map, marker.getPosition());
                     };
                 };
+
                 for (var i in ops.markers) {
                     var marker = ops.markers[i];
                     var pt = new AMap.LngLat(marker.longitude, marker.latitude);
@@ -159,33 +165,119 @@
                     // add marker to the map
                     marker2.setMap(map);
 
-                    if (!marker.title && !marker.content) {
-                        return;
+                    if (marker.title && marker.content) {
+                        var infoWindow2 = new AMap.InfoWindow({
+                            isCustom: false,
+                            autoMove: true,
+                            content: "<p>" + (marker.title ? marker.title : '') + "</p><p>" + (marker.content ? marker.content : '') + "</p>"
+                        });
+                        if (marker.width && marker.height) {
+                            infoWindow2.setSize(new AMap.Size(marker.width, marker.height));
+                        }
+
+                        AMap.event.addListener(marker2, "click", openInfoWindow(map, marker2, infoWindow2));
                     }
-                    var infoWindow2 = new AMap.InfoWindow({
-                        isCustom: false,
-                        autoMove: true,
-                        content: "<p>" + (marker.title ? marker.title : '') + "</p><p>" + (marker.content ? marker.content : '') + "</p>"
-                    });
-                    if (marker.width && marker.height) {
-                        infoWindow2.setSize(new AMap.Size(marker.width, marker.height));
-                    }
-                    AMap.event.addListener(marker2, "click", openInfoWindow(map, marker2, infoWindow2));
+
                 }
+                map.setFitView();
+
+                var mapReload = function() {
+                    //清理原有Marker
+                    map.clearMap();
+                    for (var i in ops.markers) {
+                        console.log('i',i);
+                        var marker = ops.markers[i];
+                        var pt = new AMap.LngLat(marker.longitude, marker.latitude);
+
+                        var marker2;
+                        if (marker.icon) {
+                            marker2 = new AMap.Marker({
+                                icon: marker.icon,
+                                position: pt
+                            });
+                        }
+                        else {
+                            marker2 = new AMap.Marker({
+                                position: pt
+                            });
+                        }
+                        if (marker.draggable){
+                            marker2.setDraggable(marker.draggable);
+                        }
+
+                        // add marker to the map
+                        marker2.setMap(map);
+                        console.log('before panTo', pt);
+
+                        map.setFitView();
+                        console.log('after panTo', pt);
+                    }
+
+                }
+
+                var setMarker = function(position) {
+                    console.log('setMarker');
+                    map.clearMap();
+                    var pt = new AMap.LngLat(position.longitude, position.latitude);
+                    var newMarker;
+                    newMarker = new AMap.Marker({
+                        position: pt
+                    });
+                    newMarker.setMap(map);
+                    map.setFitView();
+                }
+
+                $scope.$watch('options.markers',function(newval,oldval) {
+                    console.log('watch change');
+                    mapReload();
+                },true);
+
+                $scope.$watch('search', function(newval,oldval) {
+                    console.log('watch search',newval);
+                    if(newval) {
+                        console.log('watch search new',newval);
+                        map.plugin(["AMap.Geocoder"], function() {
+                            var MGeocoder = new AMap.Geocoder();
+                            //返回地理编码结果
+                            AMap.event.addListener(MGeocoder, "complete", $scope.showLocation);
+                            MGeocoder.getLocation(newval);  //地理编码
+                        });
+                    }
+                });
+
+                $scope.showLocation = function(data) {
+                    //地理编码结果数组
+                    console.log('showLocation');
+                    var geocode = new Array();
+                    var position = {};
+
+                    geocode = data.geocodes;
+                    console.log('data',data);
+                    for (var i = 0; i < geocode.length; i++) {
+                    //地址的经纬度
+                        position = {
+                            longitude: geocode[i].location.getLng(),
+                            latitude: geocode[i].location.getLat()
+                        }
+                    }
+
+                    $scope.myPosition.lng = position.longitude;
+                    $scope.myPosition.lat =  position.latitude;
+                    console.log("-------my position------",$scope.myPosition)
+                    setMarker(position);
+                }
+
 
                 $scope.$on('$destroy', function() {
                     if (map && map.destroy) {
                         map.destroy();
                     }
                 });
-
+              },500);      
 
             },
             template: '<div></div>'
         };
-    };
-
-    var aMap = angular.module('aMap', []);
-    aMap.directive('aMap', [aMapDir]);
+    }]);
 
 })(angular);
